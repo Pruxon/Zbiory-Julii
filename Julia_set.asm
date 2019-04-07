@@ -11,8 +11,8 @@ floatTwo:		.float 2.0
 floatFour:		.float 4.0
 floatPixel: 		.float 0.00078125
 floatRowCounter:	.float -257.0			#jeden wiecej bo taki kodzik sobie napisalem :p
-floatInRowCounter:	.float -256.0
-floatMAX:		.float 257.0
+floatInRowCounter:	.float -257.0
+floatMAX:		.float 256.0
 precision:		.word 40 
 buffer: 		.space 0x10103A			#obrazek 513x513 wiec 513*513*4+54
 fileName:		.asciiz "Julia.bmp"
@@ -144,6 +144,7 @@ prepareBMPHeader:
    	lwc1 $f17, floatInRowCounter
    	lwc1 $f18, floatMAX
    	lwc1 $f29, floatPixel
+   	lwc1 $f19, floatInRowCounter
    	
    	#przejscie przez wszystkie wiersze
    GoThroughEveryRow:
@@ -151,7 +152,7 @@ prepareBMPHeader:
    	c.le.s $f16, $f18
    	bc1f END
    	
-   	add.s $f12, $f12, $f30
+   	add.s $f12, $f1, $f16
    	li $v0, 2
    	syscall
    	la $a0,text4
@@ -159,7 +160,7 @@ prepareBMPHeader:
    	syscall
    	############################ sprawdzic ten code - DEFAULT CHYBA FALSE i po exitFailure ustawiac na defaultowy
    	#dopisac przejscia przez wiersze i ustawianie kolorow i zapis do pliku
-   	sub.s $f17, $f1, $f18
+   	add.s $f17, $f1, $f19
    	
    	#przejscie przez wiersz
    ForEveryRow:
@@ -170,6 +171,14 @@ prepareBMPHeader:
    	mul.s $f7, $f17, $f29
    	mul.s $f8, $f16, $f29
    
+   	
+   	#add.s $f12, $f1, $f17
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text5
+   	#li $v0,4
+   	#syscall
+   	
  ################################################
  # $f7 - real value of actual pixel
  # $f8 - imaginary value of actual pixel
