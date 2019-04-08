@@ -2,11 +2,10 @@
 
 text1: 			.asciiz "Podaj wartosc rzeczywista stalej c: "
 text2: 			.asciiz "Podaj wartosc urojona stalej c: "
-text3:			.asciiz "\n"
+text3:			.asciiz " : "
+text:			.asciiz "\n"
 text4:			.asciiz "koniec sukces\n"
 text5:			.asciiz "koniec porazka\n"
-fileName:		.asciiz "Julia.bmp"
-fileErrorMsg:		.asciiz "Blad pliku\n"
 floatZero:		.float 0.0
 floatOne:		.float 1.0
 floatTwo:		.float 2.0
@@ -15,9 +14,10 @@ floatPixel: 		.float 0.0078125
 floatRowCounter:	.float -257.0			#jeden wiecej bo taki kodzik sobie napisalem :p
 floatInRowCounter:	.float -257.0
 floatMAX:		.float 256.0
-precision:		.word 32 
-buffer: 		.space 0xC123C			#obrazek 513x513 wiec 514*513*3+54        
-
+precision:		.word 40 
+buffer: 		.space 0x10103A			#obrazek 513x513 wiec 513*513*4+54
+fileName:		.asciiz "Julia.bmp"
+fileErrorMsg:		.asciiz "Blad pliku\n"
 .text
 #################################################
 # $f1 = 0.0
@@ -28,8 +28,8 @@ buffer: 		.space 0xC123C			#obrazek 513x513 wiec 514*513*3+54
 # $f4 - c urojone
 # $f5 - p rzeczywiste
 # $f6 - p urojone
-# $s1 - maksymalna iloœc obiegów pêtli (precision)
-# $t1 - adres bufora
+# $s1 - maksymalna iloœc obiegów pêtli (1000)
+# $t0 - adres bufora
 #################################################
 
 main:
@@ -56,7 +56,7 @@ main:
    	movf.s $f4, $f0
    	
    	lw $s1, precision				#dokladnosc algorytmu (maksymalna ilosc obejsc petli)
-   	la $t1, buffer
+   	la $t0, buffer
 
 #################################################
 # $t2 - iterator po bajtach headera
@@ -68,8 +68,8 @@ main:
 
 prepareBMPHeader:
 		
-   	move $t8, $t1 #zapamietanie adresu tablicy headera 
-	move $t2, $t1 
+   	move $t8, $t0 #zapamietanie adresu tablicy headera 
+	move $t2, $t0 
 	
 	li $t7, 0x42
 	sb $t7, ($t2)
@@ -80,15 +80,15 @@ prepareBMPHeader:
 	addi $t2, $t2, 1
 	
 	#File Size
-	li $t7, 0x0C
+	li $t7, 0x3A
 	sb $t7, ($t2)
 	addi $t2, $t2, 1
-	li $t7, 0x12
+	li $t7, 0x10
 	sb $t7, ($t2)
 	addi $t2, $t2, 1
-	li $t7, 0x3C
+	li $t7, 0x10
 	sb $t7, ($t2)
-	addi $t2, $t2 2
+	addi $t2, $t2, 2
    	
    	#przeskoczenie 4 bajtów, tak mówi wikipedia
    	addi $t2, $t2, 4
@@ -132,7 +132,6 @@ prepareBMPHeader:
 	#pozniej same zera
 	addi $t2, $t2, 24
    	
-   	#addi $t1, $t1, 54
 #################################################
 # $f16 - licznik rzêdów
 # $f17 - licznik w rzêdzie
@@ -169,7 +168,7 @@ prepareBMPHeader:
    	
    	add.s $f17, $f17, $f30
    	c.le.s $f17, $f18
-   	bc1f Padding
+   	bc1f GoThroughEveryRow
    	mul.s $f7, $f17, $f29
    	mul.s $f8, $f16, $f29
    
@@ -190,13 +189,24 @@ prepareBMPHeader:
  # $f13 - auxiliary register  Zr^2-Zu^2
  # $f14 -  next auxiliary register  Zr*Zu*2
  # $f15 POMOC SPR
- # $s2 - licznik koloru
  #################################################
  
    BeforeAlgorithm:
    	#movf.s $f7, $f5				#tu wstawic wartosc rzeczywista sprawdzanego piksela
    	#movf.s $f8, $f6				#tu wstawic wartosc urojona sprawdzanego piksela
-   	add $s1, $zero, $zero
+   	
+   	#add.s $f12, $f1, $f7
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text3
+   	#li $v0,4
+   	#syscall
+   	#add.s $f12, $f1, $f8
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text
+   	#li $v0,4
+   	#syscall
    	
    Algorithm:
    	blez $s1, EndAlgorithmSuccess		#jesli $s1 == 0 wyjdz z petli
@@ -236,98 +246,27 @@ prepareBMPHeader:
    	#syscall
    	################################
    	
-   	addi $s2, $s2, 1
-   	
    	j Algorithm
    	
    EndAlgorithmSuccess:
    	lw $s1, precision
    	
-   	sll $s2, $s2, 3
-   	
-   	sb $s2, ($t1)
-	sb $s2, 1($t1)
-	sb $s2, 2($t1)
-	addi $t1, $t1, 3
-   	
+   	#la $a0,text4
+   	#li $v0,4
+   	#syscall
    	j ForEveryRow
    	
    EndAlgorithmFailure:
    	lw $s1, precision
-   	c.le.s $f1, $f2				#ustawienie z powrotem coproc code 0 na false
    	
-   	sb $s2, ($t1)
-	sb $s2, 1($t1)
-	sb $s2, 2($t1)
-	addi $t1, $t1, 3
+   	#c.le.s $f1, $f2
    	
+   	#la $a0,text5
+   	#li $v0,4
+   	#syscall
    	j ForEveryRow
-   	
-   Padding:
-   	addi $t1, $t1, 1
-   	b GoThroughEveryRow
    
    END:
-   
-   	
-   
-   saveTofile:
-	##############################################################
-	#t0 - adres tablicy przechowujacej tablice pixeli
-	#t1 - 
-	#t2
-	#t3
-	#t4
-	#t5
-	#t6
-	#t7 - 
-	#t8 - adres buforu headera
-	#t9 - deskryptor pliku
-	##############################################################
-	
-	#syscall 13 open file
-	la $a0, fileName
-	li $a1, 1
-	li $a2, 0
-	li $v0, 13
-	syscall
-	
-	move $t9, $v0  #skopiowanie deskryptora pliku do t9
-	
-	#jesli nie otwarzono pliku to skok do fileError
-	bltz $v0, fileError
-	
-	#syscall write to file
-	move $a0, $t9
-	move $a1, $t8
-	li $a2, 54
-	li $v0, 15
-	syscall
-	
-	#syscall write to file
-	move $a0, $t9
-	move $a1, $t1
-	li $a2, 791046
-	li $v0, 15
-	syscall
-	
-	#syscall close file
-	move $a0, $t0
-	li $v0, 16
-	syscall
-
-	b exit
-	
-fileError:
-		
-	#syscall print msg
-	la $a0, fileErrorMsg
-	li $v0, 4
-	syscall
-   
-   
-   
-   
 
    exit:	
 	# syscall exit programu:

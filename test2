@@ -16,7 +16,8 @@ floatRowCounter:	.float -257.0			#jeden wiecej bo taki kodzik sobie napisalem :p
 floatInRowCounter:	.float -257.0
 floatMAX:		.float 256.0
 precision:		.word 32 
-buffer: 		.space 0xC123C			#obrazek 513x513 wiec 514*513*3+54        
+buffer: 		.space 0xC123C			#obrazek 513x513 wiec 514*513*3+54  
+header:			.space 54
 
 .text
 #################################################
@@ -28,8 +29,8 @@ buffer: 		.space 0xC123C			#obrazek 513x513 wiec 514*513*3+54
 # $f4 - c urojone
 # $f5 - p rzeczywiste
 # $f6 - p urojone
-# $s1 - maksymalna iloœc obiegów pêtli (precision)
-# $t1 - adres bufora
+# $s1 - maksymalna iloœc obiegów pêtli (1000)
+# $t0 - adres bufora
 #################################################
 
 main:
@@ -57,6 +58,7 @@ main:
    	
    	lw $s1, precision				#dokladnosc algorytmu (maksymalna ilosc obejsc petli)
    	la $t1, buffer
+	la $t2, header
 
 #################################################
 # $t2 - iterator po bajtach headera
@@ -68,8 +70,8 @@ main:
 
 prepareBMPHeader:
 		
-   	move $t8, $t1 #zapamietanie adresu tablicy headera 
-	move $t2, $t1 
+   	#move $t8, $t1 #zapamietanie adresu tablicy headera 
+	#move $t2, $t1 
 	
 	li $t7, 0x42
 	sb $t7, ($t2)
@@ -132,7 +134,6 @@ prepareBMPHeader:
 	#pozniej same zera
 	addi $t2, $t2, 24
    	
-   	#addi $t1, $t1, 54
 #################################################
 # $f16 - licznik rzêdów
 # $f17 - licznik w rzêdzie
@@ -190,14 +191,25 @@ prepareBMPHeader:
  # $f13 - auxiliary register  Zr^2-Zu^2
  # $f14 -  next auxiliary register  Zr*Zu*2
  # $f15 POMOC SPR
- # $s2 - licznik koloru
  #################################################
  
    BeforeAlgorithm:
    	#movf.s $f7, $f5				#tu wstawic wartosc rzeczywista sprawdzanego piksela
    	#movf.s $f8, $f6				#tu wstawic wartosc urojona sprawdzanego piksela
-   	add $s1, $zero, $zero
    	
+   	#add.s $f12, $f1, $f7
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text3
+   	#li $v0,4
+   	#syscall
+   	#add.s $f12, $f1, $f8
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text
+   	#li $v0,4
+   	#syscall
+   	add $s1, $zero, $zero
    Algorithm:
    	blez $s1, EndAlgorithmSuccess		#jesli $s1 == 0 wyjdz z petli
    	mul.s $f9, $f7, $f7			#ustawiam $f9 na kwadrat $f7
@@ -235,8 +247,6 @@ prepareBMPHeader:
    	#li $v0,4
    	#syscall
    	################################
-   	
-   	addi $s2, $s2, 1
    	
    	j Algorithm
    	
@@ -299,7 +309,7 @@ prepareBMPHeader:
 	
 	#syscall write to file
 	move $a0, $t9
-	move $a1, $t8
+	move $a1, $t2
 	li $a2, 54
 	li $v0, 15
 	syscall
