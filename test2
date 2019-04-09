@@ -2,7 +2,8 @@
 
 text1: 			.asciiz "Podaj wartosc rzeczywista stalej c: "
 text2: 			.asciiz "Podaj wartosc urojona stalej c: "
-text3:			.asciiz "\n"
+text3:			.asciiz " : "
+text:			.asciiz "\n"
 text4:			.asciiz "koniec sukces\n"
 text5:			.asciiz "koniec porazka\n"
 fileName:		.asciiz "Julia.bmp"
@@ -56,9 +57,10 @@ main:
    	syscall
    	movf.s $f4, $f0
    	
+   	lw $s6, precision
    	lw $s1, precision				#dokladnosc algorytmu (maksymalna ilosc obejsc petli)
    	la $t1, buffer
-	la $t2, header
+	la $t8, header
 
 #################################################
 # $t2 - iterator po bajtach headera
@@ -71,7 +73,7 @@ main:
 prepareBMPHeader:
 		
    	#move $t8, $t1 #zapamietanie adresu tablicy headera 
-	#move $t2, $t1 
+	move $t2, $t8 
 	
 	li $t7, 0x42
 	sb $t7, ($t2)
@@ -155,32 +157,17 @@ prepareBMPHeader:
    	c.le.s $f16, $f18
    	bc1f END
    	
-   	#add.s $f12, $f1, $f16
-   	#li $v0, 2
-   	#syscall
-   	#la $a0,text4
-   	#li $v0,4
-   	#syscall
-   	############################ sprawdzic ten code - DEFAULT CHYBA FALSE i po exitFailure ustawiac na defaultowy
-   	#dopisac przejscia przez wiersze i ustawianie kolorow i zapis do pliku
-   	add.s $f17, $f1, $f19
+   	add.s $f17, $f1, $f19				#ustawienie licznika w rzêdzie na poczatkow¹ wartosc
    	
    	#przejscie przez wiersz
    ForEveryRow:
    	
-   	add.s $f17, $f17, $f30
+   	add.s $f17, $f17, $f30				
    	c.le.s $f17, $f18
    	bc1f Padding
    	mul.s $f7, $f17, $f29
    	mul.s $f8, $f16, $f29
    
-   	
-   	#add.s $f12, $f1, $f17
-   	#li $v0, 2
-   	#syscall
-   	#la $a0,text5
-   	#li $v0,4
-   	#syscall
    	
  ################################################
  # $f7 - real value of actual pixel
@@ -194,8 +181,8 @@ prepareBMPHeader:
  #################################################
  
    BeforeAlgorithm:
-   	#movf.s $f7, $f5				#tu wstawic wartosc rzeczywista sprawdzanego piksela
-   	#movf.s $f8, $f6				#tu wstawic wartosc urojona sprawdzanego piksela
+   	add $s1, $zero, $s6			#ustawienie licznika dokladnosci na 32
+   	add $s2, $zero, $zero			#ustawienie licznika koloru na 0
    	
    	#add.s $f12, $f1, $f7
    	#li $v0, 2
@@ -206,52 +193,48 @@ prepareBMPHeader:
    	#add.s $f12, $f1, $f8
    	#li $v0, 2
    	#syscall
-   	#la $a0,text
+   	#la $a0,text3
    	#li $v0,4
    	#syscall
-   	add $s1, $zero, $zero
-   Algorithm:
-   	blez $s1, EndAlgorithmSuccess		#jesli $s1 == 0 wyjdz z petli
-   	mul.s $f9, $f7, $f7			#ustawiam $f9 na kwadrat $f7
-   	mul.s $f10, $f8, $f8			#ustawiam $f10 na kwadrat $f8
-   	add.s $f11, $f9, $f10			#kwadrat modulu
-   	c.le.s $f11, $f2			#sprawdzenie czy kwadrat modulu nie jest wiekszy niz 4, jesli tak ustawia code na true
-   	bc1f EndAlgorithmFailure		#jesli code == true wyjdz z petli, jesli code == 1 idzie dalej
-   	subi $s1, $s1, 1			#zmniejszenie licznika
    	
-   	#nowa wartosc rzeczywita Zr^2-Zu^2
-   	sub.s $f13, $f9, $f10
+   Algorithm:
+   	
+   	mul.s $f9, $f7, $f7			#ustawiam $f9 na kwadrat $f7 rzeczywiste
+   	mul.s $f10, $f8, $f8			#ustawiam $f10 na kwadrat $f8 urojona
    	
    	#nowa wartosc urojona Zr*Zu*2
    	mul.s $f14, $f7, $f8
    	mul.s $f14, $f14, $f31
-   	
-   	#podmiana na nowe wartosci rzeczywiste i urojone
-   	sub.s $f7, $f7, $f7
-   	sub.s $f8, $f8, $f8
-	add.s $f7, $f7, $f13
-	add.s $f8, $f8, $f14
-   	
+   	#nowa wartosc rzeczywita Zr^2-Zu^2
+   	sub.s $f13, $f9, $f10
    	
    	#dodanie c do sprawdzanego punktu
-   	add.s $f7, $f7, $f3
-   	add.s $f8, $f8, $f4
+   	add.s $f7, $f13, $f3
+   	add.s $f8, $f14, $f4
    	
-   	#################################
-   	#sprawdzanie wartosci
-   	#movf.s $f15, $f1
-   	#add.s $f12, $f15, $f11
-   	#li $v0, 2
-   	#syscall
-   	#la $a0,text3
-   	#li $v0,4
-   	#syscall
-   	################################
+   	mul.s $f9, $f7, $f7
+   	mul.s $f10, $f8, $f8
+   	
+   	add.s $f11, $f10, $f9
+   	subi $s1, $s1, 1			#zmniejszenie licznika
+   	addi $s2, $s2, 1			#inkrementacja kolorku
+   	
+   	c.le.s $f11, $f2			#sprawdzenie czy kwadrat modulu nie jest wiekszy niz 4, jesli tak ustawia code na true
+   	bc1f EndAlgorithmFailure		#jesli code == true wyjdz z petli, jesli code == 1 idzie dalej
+   	
+   	blez $s1, EndAlgorithmSuccess		#jesli $s1 == 0 wyjdz z petli
    	
    	j Algorithm
    	
    EndAlgorithmSuccess:
-   	lw $s1, precision
+   	#lw $s1, precision
+   	
+   	#add.s $f12, $f1, $f11
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text4
+   	#li $v0,4
+   	#syscall
    	
    	sll $s2, $s2, 3
    	
@@ -263,8 +246,14 @@ prepareBMPHeader:
    	j ForEveryRow
    	
    EndAlgorithmFailure:
-   	lw $s1, precision
-   	c.le.s $f1, $f2				#ustawienie z powrotem coproc code 0 na false
+   	#lw $s1, precision
+   	
+   	#add.s $f12, $f1, $f11
+   	#li $v0, 2
+   	#syscall
+   	#la $a0,text5
+   	#li $v0,4
+   	#syscall
    	
    	sb $s2, ($t1)
 	sb $s2, 1($t1)
@@ -281,7 +270,7 @@ prepareBMPHeader:
    
    	
    
-   saveTofile:
+ saveTofile:
 	##############################################################
 	#t0 - adres tablicy przechowujacej tablice pixeli
 	#t1 - 
@@ -309,7 +298,7 @@ prepareBMPHeader:
 	
 	#syscall write to file
 	move $a0, $t9
-	move $a1, $t2
+	move $a1, $t8
 	li $a2, 54
 	li $v0, 15
 	syscall
