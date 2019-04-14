@@ -1,0 +1,240 @@
+# Julia sets
+# Author: Jan Prugarewicz
+
+.data
+fileName: 		.asciiz "Julia.bmp"
+loadReal:		.asciiz "Input real part of C: "
+loadImaginary:		.asciiz "Input imaginary part of C: "
+text:			.asciiz "  "
+text2:			.asciiz "\n"
+
+buffer: 		.space 3009060
+floatPixel:		.float 0.004
+
+floatZero:		.float 0.0
+floatFour:		.float 4.0
+floatTwo:		.float 2.0
+floatMinusTwo:		.float -2.0
+
+#idk why no workin :(
+#		B	M	size				RSV		offset
+#header:	.byte	0x42,	0x4D,	0x2D,	0xEA,	0x24,	0x00,	0x00,	0x00,	0x36,	0x00,	0x00,	0x00
+#		HeaderSize			Width				Height
+#	.byte	0x28,	0x00,	0x00,	0x00,	0x03,	0xE9,	0x00,	0x00,	0x03,	0xE9,	0x00,	0x00
+#		color planes	bits per pixel
+#	.byte	0x01,	0x00,	0x18,	0x00
+
+.text
+
+main:
+########################################################
+# $f1 = 0.0
+# $f2 = 4.0
+# $f3 = 2.0
+# $f4 = -2.0
+# $f5 - real value of C
+# $f6 - imaginary value of C
+# $f7 - actual real value of pixel
+# $f8 - actual imaginary value of pixel
+# $f9 - actual Re^2
+# $f10 - actual Im^2
+# $f11 - Re^2+Im^2
+# $f13 - value of one pixel (floatPixel)
+# $f14 - calculation help (real)
+# $f15 - calculation help (imaginary)
+
+
+# $t1 - buffer address
+# $s1 - algorithm precision
+# $t2 - colour counter
+# $t3 - algorithm counter
+# $t4 - address iterator
+# $t7 - haplings
+
+registerLoading:
+	lwc1 $f1, floatZero			# 0.0
+	lwc1 $f2, floatFour			# 4.0
+	lwc1 $f3, floatTwo			# 2.0
+	lwc1 $f4, floatMinusTwo			# -2.0
+	
+   	la $a0,loadReal				#loading real value of C
+   	li $v0,4
+   	syscall
+   	
+   	li $v0, 6
+   	syscall
+   	movf.s $f5, $f0
+   	
+   	la $a0,loadImaginary			#loading imaginary value of C
+   	li $v0,4
+   	syscall
+   	
+   	li $v0, 6
+   	syscall
+   	movf.s $f6, $f0
+
+header:
+	la $t1,buffer
+	or $t4,$zero,$t1
+	
+	#BM
+	li $t7, 0x42
+	sb $t7,($t4)
+	li $t7, 0x4D
+	sb $t7,1($t4)
+	addiu $t4,$t4,2
+	
+	#Size of File
+	li $t7, 0x24
+	sb $t7, ($t4)
+	addi $t4, $t4, 1
+	li $t7, 0xEA
+	sb $t7, ($t4)
+	addi $t4, $t4, 1
+	li $t7, 0x2D
+	sb $t7, ($t4)
+	addi $t4, $t4, 6
+	
+	#offset
+	li $t7, 0x36
+	sb $t7, ($t4)
+	addiu $t4,$t4,4
+	
+	#Number of bytes in the DIB header 
+	li $t7, 0x28
+	sb $t7, ($t4)
+	addiu $t4,$t4,4
+	
+	#Width
+	li $t7, 0xE9
+	sb $t7, ($t4)
+	addi $t4, $t4, 1
+	li $t7, 0x03
+	sb $t7, ($t4)
+	addi $t4, $t4, 3
+	
+	#Height
+	li $t7, 0xE9
+	sb $t7, ($t4)
+	addi $t4, $t4, 1
+	li $t7, 0x03
+	sb $t7, ($t4)
+	addi $t4, $t4, 3
+	
+	# Number of color planes being used =1
+	li $t7, 0x01
+	sb $t7, ($t4)
+	addiu $t4,$t4,2
+	
+	# Number of bits per pixel = 24
+	li $t7, 0x18
+	sb $t7, ($t4)
+	
+
+   	
+beforeAlgorithm:
+	la $t4,54($t1)
+   	li $s1, 32				#precision of algorithm (number of loop iterations)
+   	li $t2, 0
+   	lwc1 $f13, floatPixel
+   	lwc1 $f8, floatMinusTwo
+
+forEveryRow:
+	lwc1 $f7, floatMinusTwo
+	c.le.s $f8, $f3
+	bc1f toFile
+	
+forEveryPixel:
+	#c.le.s $f7, $f3
+	#bc1f forEveryRow
+	add $t2, $zero, $zero
+	li $t3, 0
+	movf.s $f14, $f8
+	movf.s $f15, $f7
+	
+	#movf.s $f12, $f7
+	#li  $v0, 2
+	#syscall
+	#la $a0,text				#loading real value of C
+   	#li $v0,4
+   	#syscall
+	#movf.s $f12, $f8
+	#li  $v0, 2
+	#syscall
+	#la $a0,text				#loading real value of C
+   	#li $v0,4
+   	#syscall
+	
+Algorithm:
+	mul.s $f9,$f14,$f14		# Re^2
+	mul.s $f10,$f15,$f15 		# Im^2
+	
+	mul.s $f15,$f14,$f15 		# new Imaginary value
+	mul.s $f15,$f15,$f3		# multipied by 2
+	sub.s $f14,$f9,$f10 		# new real value
+	
+	add.s $f14,$f14,$f5 		# add C to real value
+	add.s $f15,$f15,$f6 		# add C to imaginary value
+	
+	mul.s $f9,$f14,$f14 		# Module
+	mul.s $f10,$f15,$f15
+	add.s $f11,$f9,$f10
+	
+	addi  $t2,$t2,1			# colour incrementation
+	addiu $t3,$t3,1 		# counter +1
+			
+	c.le.s $f11,$f2
+	bc1f afterAlgorithm
+	
+	bne $t3,$s1,Algorithm
+
+	
+afterAlgorithm:
+
+	#movf.s $f12, $f11
+	#li  $v0, 2
+	#syscall
+	#la $a0,text2				#loading real value of C
+   	#li $v0,4
+   	#syscall
+
+	addi $t4, $t4, 1
+	sll $t2,$t2,3 			#multiply colour by 8, so that colour is from 0-255
+	sb $t2,($t4)
+	addi $t4,$t4,2 			#moving iterator 3 bytes right 
+	
+	add.s $f7,$f7,$f13 		#add 1/250 to imaginary part
+	c.lt.s $f3,$f7
+	bc1f forEveryPixel
+
+	add.s $f8,$f8,$f13		#add 1/250 to real part
+	add $t4,$t4,1 			#padding 
+	
+	j forEveryRow
+	
+	
+toFile:
+	# open file
+	la $a0, fileName
+	li $a1, 1	
+	li $a2, 0	
+	li $v0, 13
+	syscall
+	# save file descriptor
+	move $t9, $v0
+	# write BMP head
+	#li $v0, 15
+	#move $a0, $t9
+	#la $a1, header
+	#li $a2, 54
+	#syscall
+	# write bitmap data
+	li $v0, 15
+	move $a0, $t9
+	la $a1, buffer
+	li $a2, 0x2DEA24
+	syscall
+	# close file
+	li $v0, 16
+	move $a0, $t9
+	syscall
